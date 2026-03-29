@@ -53,7 +53,7 @@ use objc2_metal::{
     MTLTriangleFillMode, MTLWinding,
 };
 use objc2_quartz_core::CAMetalLayer;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{Condvar, Mutex, RwLock};
 
 #[derive(Clone, Debug)]
 pub struct Api;
@@ -544,9 +544,10 @@ impl crate::Queue for Queue {
     ) -> Result<(), crate::DeviceError> {
         autoreleasepool(|_| {
             let extra_command_buffer = {
-                let completed_value = Arc::clone(&signal_fence.completed_value);
+                let fence_sync = Arc::clone(&signal_fence.sync);
                 let block = block2::RcBlock::new(move |_cmd_buf| {
-                    completed_value.store(signal_value, atomic::Ordering::Release);
+                    *fence_sync.0.lock() = signal_value;
+                    fence_sync.1.notify_all();
                 });
 
                 let raw = match command_buffers.last() {
@@ -1020,7 +1021,7 @@ unsafe impl Sync for QuerySet {}
 
 #[derive(Debug)]
 pub struct Fence {
-    completed_value: Arc<atomic::AtomicU64>,
+    sync: Arc<(Mutex<crate::FenceValue>, Condvar)>,
     /// The pending fence values have to be ascending.
     pending_command_buffers: Vec<(
         crate::FenceValue,
@@ -1036,7 +1037,7 @@ unsafe impl Sync for Fence {}
 
 impl Fence {
     fn get_latest(&self) -> crate::FenceValue {
-        let mut max_value = self.completed_value.load(atomic::Ordering::Acquire);
+        let mut max_value = *self.sync.0.lock();
         for &(value, ref cmd_buf) in self.pending_command_buffers.iter() {
             if cmd_buf.status() == MTLCommandBufferStatus::Completed {
                 max_value = value;
