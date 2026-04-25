@@ -45,6 +45,13 @@ Bottom level categories:
 ### Added/New Features
 
 - Add per-stage subgroup size control via a new `subgroup_size: SubgroupSize` field on `PipelineCompilationOptions`, gated behind the new `Features::SUBGROUP_SIZE_CONTROL`. The `SubgroupSize` enum offers `Varying` (default), `Full` (compute/task/mesh stages only), and `Fixed(u32)`. Validation for `Fixed(n)` follows the WebGPU [`subgroup-size-control` proposal](https://github.com/gpuweb/gpuweb/blob/main/proposals/subgroup-size-control.md): power of two within `[subgroup_min_size, subgroup_max_size]`, and `workgroup_size.x` (when present) must be a multiple of `n`. Honored on Vulkan via `VK_EXT_subgroup_size_control` (promoted in 1.3); other backends accept only `Varying`. The field is intended for passthrough shaders — for WGSL/Naga shaders, prefer the proposal's `@subgroup_size` attribute once it lands. By @ruihe774.
+- Implement `i16`/`u16` 16-bit integer support in WGSL shaders, gated behind `Features::SHADER_I16` and `enable wgpu_int16;`. Supported on Vulkan, Metal, and DX12 (SM 6.2+). By @JMS55 in [#9412](https://github.com/gfx-rs/wgpu/pull/9412).
+
+### Bug Fixes
+
+#### Vulkan
+
+- Fixed `SHADER_I16` not enabling `storage_buffer16_bit_access` or `storage_input_output16`, causing Vulkan validation errors when using 16-bit integers in buffers. By @JMS55 in [#9412](https://github.com/gfx-rs/wgpu/pull/9412).
 
 ## v29.0.3 (2026-05-01)
 
