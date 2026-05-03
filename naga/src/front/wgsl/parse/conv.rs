@@ -452,6 +452,8 @@ pub fn map_predeclared_type(
 
         // scalars
         "bool" => Ti::Scalar(Sc::BOOL).into(),
+        "i8" => Ti::Scalar(Sc::I8).into(),
+        "u8" => Ti::Scalar(Sc::U8).into(),
         "i32" => Ti::Scalar(Sc::I32).into(),
         "u32" => Ti::Scalar(Sc::U32).into(),
         "f32" => Ti::Scalar(Sc::F32).into(),
@@ -548,13 +550,38 @@ pub fn map_predeclared_type(
         "acceleration_structure" => TypeGenerator::AccelerationStructure.into(),
         // ray query
         "ray_query" => TypeGenerator::RayQuery.into(),
-        // cooperative matrix
+        // cooperative matrix — square shapes
         "coop_mat8x8" => TypeGenerator::CooperativeMatrix {
             columns: crate::CooperativeSize::Eight,
             rows: crate::CooperativeSize::Eight,
         }.into(),
         "coop_mat16x16" => TypeGenerator::CooperativeMatrix {
             columns: crate::CooperativeSize::Sixteen,
+            rows: crate::CooperativeSize::Sixteen,
+        }.into(),
+        // cooperative matrix — rectangular shapes for asymmetric MxNxK configs
+        "coop_mat8x16" => TypeGenerator::CooperativeMatrix {
+            columns: crate::CooperativeSize::Eight,
+            rows: crate::CooperativeSize::Sixteen,
+        }.into(),
+        "coop_mat16x8" => TypeGenerator::CooperativeMatrix {
+            columns: crate::CooperativeSize::Sixteen,
+            rows: crate::CooperativeSize::Eight,
+        }.into(),
+        "coop_mat8x32" => TypeGenerator::CooperativeMatrix {
+            columns: crate::CooperativeSize::Eight,
+            rows: crate::CooperativeSize::ThirtyTwo,
+        }.into(),
+        "coop_mat32x8" => TypeGenerator::CooperativeMatrix {
+            columns: crate::CooperativeSize::ThirtyTwo,
+            rows: crate::CooperativeSize::Eight,
+        }.into(),
+        "coop_mat16x32" => TypeGenerator::CooperativeMatrix {
+            columns: crate::CooperativeSize::Sixteen,
+            rows: crate::CooperativeSize::ThirtyTwo,
+        }.into(),
+        "coop_mat32x16" => TypeGenerator::CooperativeMatrix {
+            columns: crate::CooperativeSize::ThirtyTwo,
             rows: crate::CooperativeSize::Sixteen,
         }.into(),
         _ => return Ok(None),
@@ -565,6 +592,20 @@ pub fn map_predeclared_type(
     let extensions_needed: Option<&[_]> = match ty {
         PredeclaredType::TypeInner(ref ty) if ty.scalar() == Some(Sc::F16) => {
             Some(&[ImplementedEnableExtension::F16])
+        }
+        PredeclaredType::TypeInner(ref ty)
+            if matches!(
+                ty.scalar(),
+                Some(Sc {
+                    kind: crate::ScalarKind::Sint,
+                    width: 1
+                }) | Some(Sc {
+                    kind: crate::ScalarKind::Uint,
+                    width: 1
+                })
+            ) =>
+        {
+            Some(&[ImplementedEnableExtension::WgpuCooperativeMatrix])
         }
         PredeclaredType::RayDesc
         | PredeclaredType::RayIntersection

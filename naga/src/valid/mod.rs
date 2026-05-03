@@ -214,6 +214,9 @@ bitflags::bitflags! {
         const MEMORY_DECORATION_COHERENT = 1 << 41;
         /// Support for the `@volatile` memory decoration on storage buffers.
         const MEMORY_DECORATION_VOLATILE = 1 << 42;
+        /// Support for 8-bit integer scalars (`i8`/`u8`) in storage buffers and
+        /// as the component type of cooperative matrices.
+        const SHADER_INT8 = 1 << 43;
     }
 }
 
