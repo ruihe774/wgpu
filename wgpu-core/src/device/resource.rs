@@ -369,6 +369,25 @@ impl Device {
         }
     }
 
+    /// When `size == Full`, verifies that `workgroup_size.x` is at least
+    /// `subgroup_min_size` so a full subgroup can fit in the workgroup.
+    /// Returns `(workgroup_size_x, subgroup_min_size)` on error.
+    fn check_full_subgroup_workgroup_size_x(
+        &self,
+        size: wgt::SubgroupSize,
+        workgroup_size_x: u32,
+    ) -> Result<(), (u32, u32)> {
+        if !matches!(size, wgt::SubgroupSize::Full) {
+            return Ok(());
+        }
+        let min = self.adapter.raw.info.subgroup_min_size;
+        if workgroup_size_x < min {
+            Err((workgroup_size_x, min))
+        } else {
+            Ok(())
+        }
+    }
+
     fn validate_compute_subgroup_size(
         &self,
         size: wgt::SubgroupSize,
@@ -3921,6 +3940,7 @@ impl Device {
                 desc.stage.entry_point.as_ref().map(|ep| ep.as_ref()),
             )?;
 
+            let naga_stage = stage.to_naga();
             if let Some(ref interface) = shader_module.interface {
                 let _ = interface.check_stage(
                     &mut binding_layout_source,
@@ -3929,6 +3949,15 @@ impl Device {
                     stage,
                     io,
                 )?;
+                if let Some(ws) = interface.workgroup_size(naga_stage, &final_entry_point_name) {
+                    self.check_full_subgroup_workgroup_size_x(desc.stage.subgroup_size, ws[0])
+                        .map_err(|(workgroup_size_x, subgroup_min_size)| {
+                            pipeline::CreateComputePipelineError::WorkgroupSizeTooSmallForFullSubgroups {
+                                workgroup_size_x,
+                                subgroup_min_size,
+                            }
+                        })?;
+                }
             }
         }
 
@@ -4523,6 +4552,7 @@ impl Device {
                         )
                         .map_err(stage_err)?;
 
+                    let naga_stage = stage.to_naga();
                     if let Some(ref interface) = task_shader_module.interface {
                         io = interface
                             .check_stage(
@@ -4533,6 +4563,21 @@ impl Device {
                                 io,
                             )
                             .map_err(stage_err)?;
+                        if let Some(ws) =
+                            interface.workgroup_size(naga_stage, &_task_entry_point_name)
+                        {
+                            self.check_full_subgroup_workgroup_size_x(
+                                stage_desc.subgroup_size,
+                                ws[0],
+                            )
+                            .map_err(|(workgroup_size_x, subgroup_min_size)| {
+                                pipeline::CreateRenderPipelineError::WorkgroupSizeTooSmallForFullSubgroups {
+                                    stage: stage_bit,
+                                    workgroup_size_x,
+                                    subgroup_min_size,
+                                }
+                            })?;
+                        }
                         validated_stages |= stage_bit;
                     }
                     Some(hal::ProgrammableStage {
@@ -4565,6 +4610,7 @@ impl Device {
                         )
                         .map_err(stage_err)?;
 
+                    let naga_stage = stage.to_naga();
                     if let Some(ref interface) = mesh_shader_module.interface {
                         io = interface
                             .check_stage(
@@ -4575,6 +4621,21 @@ impl Device {
                                 io,
                             )
                             .map_err(stage_err)?;
+                        if let Some(ws) =
+                            interface.workgroup_size(naga_stage, &_mesh_entry_point_name)
+                        {
+                            self.check_full_subgroup_workgroup_size_x(
+                                stage_desc.subgroup_size,
+                                ws[0],
+                            )
+                            .map_err(|(workgroup_size_x, subgroup_min_size)| {
+                                pipeline::CreateRenderPipelineError::WorkgroupSizeTooSmallForFullSubgroups {
+                                    stage: stage_bit,
+                                    workgroup_size_x,
+                                    subgroup_min_size,
+                                }
+                            })?;
+                        }
                         validated_stages |= stage_bit;
                     }
                     Some(hal::ProgrammableStage {
