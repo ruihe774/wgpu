@@ -2769,6 +2769,19 @@ impl super::Adapter {
 
         let drop_guard = crate::DropGuard::from_option(drop_callback);
 
+        let valid_pipeline_stages = {
+            let queue_families = unsafe {
+                self.instance
+                    .raw
+                    .get_physical_device_queue_family_properties(self.raw)
+            };
+            let queue_flags = queue_families
+                .get(family_index as usize)
+                .map(|f| f.queue_flags)
+                .unwrap_or(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE | vk::QueueFlags::TRANSFER);
+            compute_valid_pipeline_stages(queue_flags)
+        };
+
         let empty_descriptor_set_layout = unsafe {
             raw_device
                 .create_descriptor_set_layout(&vk::DescriptorSetLayoutCreateInfo::default(), None)
@@ -2807,6 +2820,7 @@ impl super::Adapter {
             texture_identity_factory: super::ResourceIdentityFactory::new(),
             texture_view_identity_factory: super::ResourceIdentityFactory::new(),
             empty_descriptor_set_layout,
+            valid_pipeline_stages,
         });
 
         let relay_semaphores = super::RelaySemaphores::new(&shared)?;
@@ -3113,6 +3127,34 @@ impl crate::Adapter for super::Adapter {
     fn get_ordered_texture_usages(&self) -> wgt::TextureUses {
         wgt::TextureUses::INCLUSIVE
     }
+}
+
+fn compute_valid_pipeline_stages(queue_flags: vk::QueueFlags) -> vk::PipelineStageFlags {
+    use vk::PipelineStageFlags as S;
+    // Stages that are valid on any queue per Vulkan spec table "Supported pipeline stage flags".
+    let mut stages = S::TOP_OF_PIPE | S::BOTTOM_OF_PIPE | S::HOST | S::ALL_COMMANDS;
+    if queue_flags.contains(vk::QueueFlags::GRAPHICS) {
+        stages |= S::DRAW_INDIRECT
+            | S::VERTEX_INPUT
+            | S::VERTEX_SHADER
+            | S::TESSELLATION_CONTROL_SHADER
+            | S::TESSELLATION_EVALUATION_SHADER
+            | S::GEOMETRY_SHADER
+            | S::FRAGMENT_SHADER
+            | S::EARLY_FRAGMENT_TESTS
+            | S::LATE_FRAGMENT_TESTS
+            | S::COLOR_ATTACHMENT_OUTPUT
+            | S::ALL_GRAPHICS
+            | S::TASK_SHADER_EXT
+            | S::MESH_SHADER_EXT;
+    }
+    if queue_flags.contains(vk::QueueFlags::COMPUTE) {
+        stages |= S::DRAW_INDIRECT | S::COMPUTE_SHADER;
+    }
+    if queue_flags.intersects(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE | vk::QueueFlags::TRANSFER) {
+        stages |= S::TRANSFER;
+    }
+    stages
 }
 
 fn is_format_16bit_norm_supported(instance: &ash::Instance, phd: vk::PhysicalDevice) -> bool {

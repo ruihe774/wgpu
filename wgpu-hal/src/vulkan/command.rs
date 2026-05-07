@@ -217,6 +217,15 @@ impl crate::CommandEncoder for super::CommandEncoder {
         }
 
         if !vk_barriers.is_empty() {
+            let valid = self.device.valid_pipeline_stages;
+            src_stages &= valid;
+            dst_stages &= valid;
+            if src_stages.is_empty() {
+                src_stages = vk::PipelineStageFlags::TOP_OF_PIPE;
+            }
+            if dst_stages.is_empty() {
+                dst_stages = vk::PipelineStageFlags::BOTTOM_OF_PIPE;
+            }
             unsafe {
                 self.device.raw.cmd_pipeline_barrier(
                     self.active,
@@ -265,6 +274,15 @@ impl crate::CommandEncoder for super::CommandEncoder {
         }
 
         if !vk_barriers.is_empty() {
+            let valid = self.device.valid_pipeline_stages;
+            src_stages &= valid;
+            dst_stages &= valid;
+            if src_stages.is_empty() {
+                src_stages = vk::PipelineStageFlags::TOP_OF_PIPE;
+            }
+            if dst_stages.is_empty() {
+                dst_stages = vk::PipelineStageFlags::BOTTOM_OF_PIPE;
+            }
             unsafe {
                 self.device.raw.cmd_pipeline_barrier(
                     self.active,

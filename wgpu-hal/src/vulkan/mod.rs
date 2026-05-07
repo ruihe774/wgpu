@@ -493,6 +493,11 @@ struct DeviceShared {
 
     empty_descriptor_set_layout: vk::DescriptorSetLayout,
 
+    /// Pipeline stages valid on the device's queue family per the Vulkan spec's
+    /// "Supported pipeline stage flags" table. Used to mask out graphics-only
+    /// stages when the queue family lacks `VK_QUEUE_GRAPHICS_BIT`.
+    valid_pipeline_stages: vk::PipelineStageFlags,
+
     // The `drop_guard` field must be the last field of this struct so it is dropped last.
     // Do not add new fields after it.
     drop_guard: Option<crate::DropGuard>,
