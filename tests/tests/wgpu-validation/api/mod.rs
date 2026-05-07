@@ -10,4 +10,5 @@ mod experimental;
 mod external_texture;
 mod instance;
 mod render_pipeline;
+mod subgroup_size;
 mod texture;

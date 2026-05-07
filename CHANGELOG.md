@@ -42,6 +42,10 @@ Bottom level categories:
 
 ## Unreleased
 
+### Added/New Features
+
+- Add per-stage subgroup size control via a new `subgroup_size: SubgroupSize` field on `PipelineCompilationOptions`, gated behind the new `Features::SUBGROUP_SIZE_CONTROL`. The `SubgroupSize` enum offers `Varying` (default), `Full` (compute/task/mesh stages only), and `Fixed(u32)` (must be a power of two within `[subgroup_min_size, subgroup_max_size]`). Honored on Vulkan via `VK_EXT_subgroup_size_control` (promoted in 1.3); other backends accept only `Varying`. By @ruihe774.
+
 ## v29.0.3 (2026-05-01)
 
 ### Bug Fixes
