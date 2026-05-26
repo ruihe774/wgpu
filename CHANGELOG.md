@@ -77,6 +77,7 @@ Bottom level categories:
 
 #### Vulkan
 
+- Use the imported queue family's supported shader stages when building buffer barriers for raw Vulkan devices.
 - Only request `shaderDrawParameters` when `SHADER_DRAW_INDEX` is requested, avoiding device creation failures on drivers that don't support it (e.g. V3DV, SwiftShader). By @mohamedtahaguelzim in [#9331](https://github.com/gfx-rs/wgpu/pull/9331).
 
 #### Metal

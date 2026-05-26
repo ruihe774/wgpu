@@ -202,9 +202,11 @@ impl crate::CommandEncoder for super::CommandEncoder {
         vk_barriers.clear();
 
         for bar in barriers {
-            let (src_stage, src_access) = conv::map_buffer_usage_to_barrier(bar.usage.from);
+            let (src_stage, src_access) =
+                conv::map_buffer_usage_to_barrier(bar.usage.from, self.device.queue_flags);
             src_stages |= src_stage;
-            let (dst_stage, dst_access) = conv::map_buffer_usage_to_barrier(bar.usage.to);
+            let (dst_stage, dst_access) =
+                conv::map_buffer_usage_to_barrier(bar.usage.to, self.device.queue_flags);
             dst_stages |= dst_stage;
 
             vk_barriers.push(

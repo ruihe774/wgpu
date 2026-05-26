@@ -572,12 +572,11 @@ pub fn map_buffer_usage(usage: wgt::BufferUses) -> vk::BufferUsageFlags {
 
 pub fn map_buffer_usage_to_barrier(
     usage: wgt::BufferUses,
+    queue_flags: vk::QueueFlags,
 ) -> (vk::PipelineStageFlags, vk::AccessFlags) {
     let mut stages = vk::PipelineStageFlags::empty();
     let mut access = vk::AccessFlags::empty();
-    let shader_stages = vk::PipelineStageFlags::VERTEX_SHADER
-        | vk::PipelineStageFlags::FRAGMENT_SHADER
-        | vk::PipelineStageFlags::COMPUTE_SHADER;
+    let shader_stages = buffer_shader_stages(queue_flags);
 
     if usage.contains(wgt::BufferUses::MAP_READ) {
         stages |= vk::PipelineStageFlags::HOST;
@@ -635,6 +634,19 @@ pub fn map_buffer_usage_to_barrier(
     }
 
     (stages, access)
+}
+
+fn buffer_shader_stages(queue_flags: vk::QueueFlags) -> vk::PipelineStageFlags {
+    let mut stages = vk::PipelineStageFlags::empty();
+
+    if queue_flags.contains(vk::QueueFlags::GRAPHICS) {
+        stages |= vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::FRAGMENT_SHADER;
+    }
+    if queue_flags.contains(vk::QueueFlags::COMPUTE) {
+        stages |= vk::PipelineStageFlags::COMPUTE_SHADER;
+    }
+
+    stages
 }
 
 pub fn map_view_dimension(dim: wgt::TextureViewDimension) -> vk::ImageViewType {
@@ -1034,4 +1046,52 @@ pub fn map_acceleration_structure_usage_to_barrier(
     }
 
     (stages, access)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn buffer_shader_stages_follow_queue_flags() {
+        let usage = wgt::BufferUses::UNIFORM;
+
+        let (stages, access) = map_buffer_usage_to_barrier(usage, vk::QueueFlags::GRAPHICS);
+        assert_eq!(
+            stages,
+            vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::FRAGMENT_SHADER
+        );
+        assert_eq!(access, vk::AccessFlags::UNIFORM_READ);
+
+        let (stages, access) = map_buffer_usage_to_barrier(usage, vk::QueueFlags::COMPUTE);
+        assert_eq!(stages, vk::PipelineStageFlags::COMPUTE_SHADER);
+        assert_eq!(access, vk::AccessFlags::UNIFORM_READ);
+
+        let (stages, access) =
+            map_buffer_usage_to_barrier(usage, vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE);
+        assert_eq!(
+            stages,
+            vk::PipelineStageFlags::VERTEX_SHADER
+                | vk::PipelineStageFlags::FRAGMENT_SHADER
+                | vk::PipelineStageFlags::COMPUTE_SHADER
+        );
+        assert_eq!(access, vk::AccessFlags::UNIFORM_READ);
+    }
+
+    #[test]
+    fn non_shader_buffer_usage_is_unchanged() {
+        let (stages, access) = map_buffer_usage_to_barrier(
+            wgt::BufferUses::COPY_SRC | wgt::BufferUses::VERTEX,
+            vk::QueueFlags::empty(),
+        );
+
+        assert_eq!(
+            stages,
+            vk::PipelineStageFlags::TRANSFER | vk::PipelineStageFlags::VERTEX_INPUT
+        );
+        assert_eq!(
+            access,
+            vk::AccessFlags::TRANSFER_READ | vk::AccessFlags::VERTEX_ATTRIBUTE_READ
+        );
+    }
 }
